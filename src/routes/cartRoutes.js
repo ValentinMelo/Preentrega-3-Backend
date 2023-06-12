@@ -6,6 +6,7 @@ import {
   removeProductFromCart,
   updateProductQuantityInCart,
   emptyCart,
+  purchaseCart,
 } from '../controllers/cartController.js';
 
 const router = express.Router();
@@ -21,5 +22,7 @@ router.delete("/products/:cartId/product/:productId", removeProductFromCart);
 router.put("/products/:cartId/product/:productId", updateProductQuantityInCart);
 
 router.delete("/:cartId", emptyCart);
+
+router.post("/:cartId/purchase", purchaseCart); // Nueva ruta para finalizar la compra
 
 export default router;

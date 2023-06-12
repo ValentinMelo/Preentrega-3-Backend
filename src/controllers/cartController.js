@@ -7,6 +7,8 @@ import {
   actualizarCantidadProductoEnCarrito,
   vaciarCarrito,
 } from '../repositories/cartRepository.js';
+import Product from '../models/Product.js';
+import Ticket from '../models/Ticket.js';
 
 // Crear un nuevo carrito
 const createCart = async (req, res) => {
@@ -84,6 +86,57 @@ const emptyCart = async (req, res) => {
   }
 };
 
+// Finalizar la compra del carrito
+const purchaseCart = async (req, res) => {
+  const { cartId } = req.params;
+  try {
+    const cart = await Cart.findById(cartId).populate('products.productId');
+    if (!cart) {
+      return res.status(404).json({ error: 'Carrito no encontrado' });
+    }
+
+    const productsToPurchase = cart.products;
+    const productsUnavailable = [];
+
+    for (const product of productsToPurchase) {
+      const { productId, quantity } = product;
+      const dbProduct = product.productId;
+
+      if (!dbProduct || dbProduct.stock < quantity) {
+        productsUnavailable.push(productId);
+      } else {
+        dbProduct.stock -= quantity;
+        await dbProduct.save();
+      }
+    }
+
+    const purchasedProducts = productsToPurchase.filter(
+      (product) => !productsUnavailable.includes(product.productId.toString())
+    );
+
+    const ticketData = {
+      code: generateUniqueCode(),
+      amount: calculateTotalAmount(purchasedProducts),
+      purchaser: cart.purchaser,
+    };
+
+    const ticket = new Ticket(ticketData);
+    await ticket.save();
+
+    cart.products = productsUnavailable.map((productId) => ({
+      productId,
+      quantity: cart.products.find((p) => p.productId.toString() === productId).quantity,
+    }));
+
+    await cart.save();
+
+    res.json({ ticket, productsUnavailable });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al finalizar la compra' });
+  }
+};
+
+
 export {
   createCart,
   getCartById,
@@ -91,4 +144,5 @@ export {
   removeProductFromCart,
   updateProductQuantityInCart,
   emptyCart,
+  purchaseCart,
 };
